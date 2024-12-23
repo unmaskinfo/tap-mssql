@@ -4,10 +4,7 @@ version = "0.0.1"
 description = "Singer tap for MSSQL, built with the Meltano Singer SDK."
 readme = "README.md"
 authors = ["John Archer <john@unmaskinfo.ca>"]
-keywords = [
-    "ELT",
-    "MSSQL",
-]
+keywords = ["ELT", "MSSQL"]
 classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
@@ -18,19 +15,17 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 license = "Apache-2.0"
-packages = [
-    { include = "tap_mssql" },
-]
+packages = [{ include = "tap_mssql" }]
 
 [tool.poetry.dependencies]
 python = ">=3.9"
-singer-sdk = { version="~=0.43.1", extras = ["faker",] }
+singer-sdk = { version = "~=0.43.1", extras = ["faker"] }
 fs-s3fs = { version = "~=1.1.1", optional = true }
 sqlalchemy = "~=2.0.36"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8"
-singer-sdk = { version="~=0.43.1", extras = ["testing"] }
+singer-sdk = { version = "~=0.43.1", extras = ["testing"] }
 
 [tool.poetry.extras]
 s3 = ["fs-s3fs"]
@@ -45,11 +40,13 @@ plugins = "sqlmypy"
 
 [tool.ruff]
 target-version = "py39"
+exclude = [".venv"]
+line-length = 120
 
 [tool.ruff.lint]
 ignore = [
-    "COM812",  # missing-trailing-comma
-    "ISC001",  # single-line-implicit-string-concatenation
+    "COM812", # missing-trailing-comma
+    "ISC001", # single-line-implicit-string-concatenation
 ]
 select = ["ALL"]
 
