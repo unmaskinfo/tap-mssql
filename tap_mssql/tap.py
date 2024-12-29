@@ -67,7 +67,7 @@ class TapMSSQL(SQLTap):
                     th.StringType,
                     description="The Python database driver to use for connecting to MSSQL Server.",
                     allowed_values=["pyodbc", "pymssql"],
-                    default="pyodbc",
+                    default="pymssql",
                     required=True,
                 ),
             ),
@@ -93,7 +93,7 @@ class TapMSSQL(SQLTap):
         Args:
             message: A Singer message object.
         """
-        self.default_output.write(self.format_message(message))
+        self.default_output.write(self.format_message(message).encode("utf-8"))
         self.default_output.flush()
 
 

@@ -31,7 +31,8 @@ class MSSQLConnector(SQLConnector):
             config: Connection configuration dictionary.
             sqlalchemy_url: Optional SQLAlchemy URL string.
         """
-        if config.get("driver_type") == "pyodbc":
+        self.mssql_connection_config = config.get("mssql_connection_config", {})
+        if self.mssql_connection_config.get("driver_type") == "pyodbc":
             pyodbc.pooling = False
 
         self.serialize_json = serialize_json
@@ -48,21 +49,21 @@ class MSSQLConnector(SQLConnector):
         Returns:
           The URL as a string.
         """
-        url_driver = f"{config.get("dialect")}+{config.get('driver_type')}"
+        url_driver = f"mssql+{self.mssql_connection_config.get('driver_type')}"
 
         config_url = sa.URL.create(
             url_driver,
-            config.get("user"),
-            config.get("password"),
-            host=config.get("host"),
-            database=config.get("database"),
-            port=config.get("port", 1433),
+            self.mssql_connection_config.get("user"),
+            self.mssql_connection_config.get("password"),
+            host=self.mssql_connection_config.get("host"),
+            database=self.mssql_connection_config.get("database"),
+            port=self.mssql_connection_config.get("port", 1433),
         )
 
-        if "sqlalchemy_url_query" in config:
-            config_url = config_url.update_query_dict(config.get("sqlalchemy_url_query"))  # type: ignore  # noqa: PGH003
+        if "sqlalchemy_url_query" in self.mssql_connection_config:
+            config_url = config_url.update_query_dict(self.mssql_connection_config.get("sqlalchemy_url_query"))  # type: ignore  # noqa: PGH003
 
-        return str(config_url)
+        return config_url
 
     def create_engine(self) -> Engine:
         """Create a new SQLAlchemy engine instance.
@@ -76,9 +77,12 @@ class MSSQLConnector(SQLConnector):
             f"{eng_prefix}echo": False,
             f"{eng_prefix}json_serializer": self.serialize_json,
             f"{eng_prefix}json_deserializer": self.deserialize_json,
-            **{f"{eng_prefix}{key}": value for key, value in self.config.get("sqlalchemy_eng_params", {}).items()},
+            **{
+                f"{eng_prefix}{key}": value
+                for key, value in self.mssql_connection_config.get("sqlalchemy_eng_params", {}).items()
+            },
         }
-
+        self.logger.info(f"SQLAlchemy URL: {eng_config}")
         return sa.engine_from_config(eng_config, prefix=eng_prefix)
 
     def to_jsonschema_type(self, sql_type: str | TypeEngine | type[TypeEngine] | t.Any) -> dict:  # noqa: ANN401
@@ -96,8 +100,8 @@ class MSSQLConnector(SQLConnector):
 
         return self.org_to_jsonschema_type(sql_type)
 
-    @staticmethod
-    def org_to_jsonschema_type(sql_type: str | TypeEngine | type[TypeEngine] | object) -> dict:
+    @classmethod
+    def org_to_jsonschema_type(cls, sql_type: str | TypeEngine | type[TypeEngine] | object) -> dict:
         """Convert SQL type to JSONSchema type.
 
         Args:
@@ -118,7 +122,7 @@ class MSSQLConnector(SQLConnector):
         if str(sql_type) in ["ROWVERSION", "TIMESTAMP"]:
             sql_type = "string"
 
-        return SQLConnector.to_jsonschema_type(sql_type)  # type: ignore  # noqa: PGH003
+        return super(MSSQLConnector, cls).to_jsonschema_type(sql_type)
 
     @staticmethod
     def to_sql_type(jsonschema_type: str) -> sa.types.TypeEngine:
