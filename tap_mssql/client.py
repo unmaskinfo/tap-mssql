@@ -5,17 +5,20 @@ This includes MSSQLStream and MSSQLConnector.
 
 from __future__ import annotations
 
+import datetime
 import typing as t
+from base64 import b64encode
 
 import pyodbc
 import sqlalchemy as sa
 from singer_sdk import SQLConnector, SQLStream
-from sqlalchemy.sql.type_api import TypeEngine as TypeEngine
 
 from tap_mssql.json_serializer import deserialize_json, serialize_json
 
 if t.TYPE_CHECKING:
+    from singer_sdk.helpers.types import Context
     from sqlalchemy.engine import Engine
+    from sqlalchemy.sql.type_api import TypeEngine
 
 
 class MSSQLConnector(SQLConnector):
@@ -134,21 +137,65 @@ class MSSQLStream(SQLStream):
     """Stream class for MSSQL streams."""
 
     connector_class = MSSQLConnector
+    supports_nulls_first: bool = False
 
-    def get_records(self, partition: dict | None) -> t.Iterable[dict[str, t.Any]]:
-        """Return a generator of record-type dictionary objects.
-
-        Developers may optionally add custom logic before calling the default
-        implementation inherited from the base class.
+    def post_process(self, row: dict, context: dict | None = None) -> dict | None:
+        """Process the record after it has been extracted from the database.
 
         Args:
-            partition: If provided, will read specifically from this data slice.
+            row: Individual record from database
+            context: Stream partition or context dictionary
 
-        Yields:
-            One dict per record.
+        Returns:
+            The processed record
         """
-        # Optionally, add custom logic instead of calling the super().
-        # This is helpful if the source database provides batch-optimized record
-        # retrieval.
-        # If no overrides or optimizations are needed, you may delete this method.
-        yield from super().get_records(partition)
+        record: dict = row
+        properties: dict = self.schema.get("properties", {})
+
+        for key, value in record.items():
+            if value is not None:
+                property_schema: dict = properties.get(key, {})
+
+                # Date in ISO format
+                if isinstance(value, datetime.datetime):
+                    record.update({key: value.isoformat()})
+
+                # Encode base64 binary fields in the record
+                if property_schema.get("contentEncoding") == "base64" and isinstance(value, bytes):
+                    record.update({key: b64encode(value).decode("utf-8")})
+
+        return record
+
+    def get_records(self, context: Context) -> t.Iterable[dict[str, t.Any]]:
+        if context:
+            msg = f"Stream '{self.name}' does not support partitioning."
+            raise NotImplementedError(msg)
+
+        selected_column_names = self.get_selected_schema()["properties"].keys()
+        table = self.connector.get_table(
+            full_table_name=self.fully_qualified_name,
+            column_names=selected_column_names,
+        )
+        query = table.select()
+
+        if self.replication_key:
+            replication_key_col = table.columns[self.replication_key]
+            order_by = (
+                sa.nulls_first(replication_key_col.asc()) if self.supports_nulls_first else replication_key_col.asc()
+            )
+            query = query.order_by(order_by)
+
+            if replication_key_col.type.python_type in (datetime.datetime, datetime.date):
+                start_val = self.get_starting_timestamp(context)
+            else:
+                start_val = self.get_starting_replication_key_value(context)
+
+            if start_val:
+                query = query.where(replication_key_col >= start_val)
+
+        with self.connector._connect() as conn:  # noqa: SLF001
+            for record in conn.execute(query).mappings():
+                transformed_record = self.post_process(dict(record))
+                if transformed_record is None:
+                    continue
+                yield transformed_record
