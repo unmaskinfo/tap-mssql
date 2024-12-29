@@ -117,6 +117,18 @@ class MSSQLConnector(SQLConnector):
 
         return SQLConnector.to_jsonschema_type(sql_type)  # type: ignore  # noqa: PGH003
 
+    @staticmethod
+    def to_sql_type(jsonschema_type: str) -> sa.types.TypeEngine:
+        """Convert JSONSchema type to SQL type.
+
+        Args:
+            jsonschema_type: JSONSchema type to convert
+
+        Returns:
+            SQLAlchemy type engine instance
+        """
+        return SQLConnector.to_sql_type(jsonschema_type)  # type: ignore  # noqa: PGH003
+
 
 class MSSQLStream(SQLStream):
     """Stream class for MSSQL streams."""
