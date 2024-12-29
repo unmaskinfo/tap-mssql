@@ -1,4 +1,8 @@
-"""MSSQL tap class."""
+"""MSSQL tap class.
+
+- Meltano SDK Config Schema: https://sdk.meltano.com/en/v0.43.1/guides/config-schema.html
+- Build SQL Taps: https://sdk.meltano.com/en/v0.43.1/guides/sql-tap.html
+"""
 
 from __future__ import annotations
 
