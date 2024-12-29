@@ -10,6 +10,7 @@ import typing as t
 import pyodbc
 import sqlalchemy as sa
 from singer_sdk import SQLConnector, SQLStream
+from sqlalchemy.sql.type_api import TypeEngine as TypeEngine
 
 from tap_mssql.json_serializer import deserialize_json, serialize_json
 
@@ -76,6 +77,45 @@ class MSSQLConnector(SQLConnector):
         }
 
         return sa.engine_from_config(eng_config, prefix=eng_prefix)
+
+    def to_jsonschema_type(self, sql_type: str | TypeEngine | type[TypeEngine] | t.Any) -> dict:  # noqa: ANN401
+        """Convert SQL type to JSONSchema type.
+
+        Args:
+            sql_type: SQL type to convert
+
+        Returns:
+            JSONSchema type definition
+        """
+        error_msg = "hd_jsonschema_types is implemented in the tap_mssql package"
+        if self.config.get("hd_jsonschema_types"):
+            raise NotImplementedError(error_msg)
+
+        return self.org_to_jsonschema_type(sql_type)
+
+    @staticmethod
+    def org_to_jsonschema_type(sql_type: str | TypeEngine | type[TypeEngine] | object) -> dict:
+        """Convert SQL type to JSONSchema type.
+
+        Args:
+            sql_type: SQL type to convert
+
+        Returns:
+            JSONSchema type definition
+        """
+        if str(sql_type).startswith("NUMERIC"):
+            sql_type = "int" if str(sql_type).endswith(", 0)") else "number"
+
+        if str(sql_type) in ["MONEY", "SMALLMONEY"]:
+            sql_type = "number"
+
+        if str(sql_type) in ["BIT"]:
+            sql_type = bool
+
+        if str(sql_type) in ["ROWVERSION", "TIMESTAMP"]:
+            sql_type = "string"
+
+        return SQLConnector.to_jsonschema_type(sql_type)  # type: ignore  # noqa: PGH003
 
 
 class MSSQLStream(SQLStream):
