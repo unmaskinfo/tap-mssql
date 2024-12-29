@@ -34,7 +34,7 @@ encoder = msgspec.json.Encoder(enc_hook=_default_encoding, decimal_format="numbe
 decoder = msgspec.json.Decoder(dec_hook=_default_decoding, float_hook=decimal.Decimal)
 
 
-def deserialize(json_str: str | bytes, **kwargs: t.Any) -> dict:
+def deserialize_json(json_str: str | bytes, **kwargs: t.Any) -> dict:
     """Deserialize a JSON string into a dictionary.
 
     Args:

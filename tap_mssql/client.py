@@ -7,69 +7,55 @@ from __future__ import annotations
 
 import typing as t
 
-import sqlalchemy  # noqa: TC002
+import pyodbc
+import sqlalchemy as sa
 from singer_sdk import SQLConnector, SQLStream
+
+from tap_mssql.json_serializer import deserialize_json, serialize_json
 
 
 class MSSQLConnector(SQLConnector):
     """Connects to the MSSQL SQL source."""
 
-    def get_sqlalchemy_url(self, config: dict) -> str:
-        """Concatenate a SQLAlchemy URL for use in connecting to the source.
+    def __init__(self, config: dict, sqlalchemy_url: str | None = None) -> None:
+        """Initialize the SQL connector.
 
         Args:
-            config: A dict with connection parameters
+            config: Connection configuration dictionary.
+            sqlalchemy_url: Optional SQLAlchemy URL string.
+        """
+        if config.get("driver_type") == "pyodbc":
+            pyodbc.pooling = False
+
+        self.serialize_json = serialize_json
+        self.deserialize_json = deserialize_json
+
+        super().__init__(config, sqlalchemy_url)
+
+    def get_sqlalchemy_url(self, config: dict[str, t.Any]) -> str:
+        """Return the SQLAlchemy URL string.
+
+        Args:
+          config: A dictionary of settings from the tap or target config.
 
         Returns:
-            SQLAlchemy connection string
+          The URL as a string.
         """
-        # TODO: Replace this with a valid connection string for your source:
-        return (
-            f"awsathena+rest://{config['aws_access_key_id']}:"
-            f"{config['aws_secret_access_key']}@athena"
-            f".{config['aws_region']}.amazonaws.com:443/"
-            f"{config['schema_name']}?"
-            f"s3_staging_dir={config['s3_staging_dir']}"
+        url_driver = f"{config.get("dialect")}+{config.get('driver_type')}"
+
+        config_url = sa.URL.create(
+            url_driver,
+            config.get("user"),
+            config.get("password"),
+            host=config.get("host"),
+            database=config.get("database"),
+            port=config.get("port", 1433),
         )
 
-    @staticmethod
-    def to_jsonschema_type(
-        from_type: str
-        | sqlalchemy.types.TypeEngine
-        | type[sqlalchemy.types.TypeEngine],
-    ) -> dict:
-        """Returns a JSON Schema equivalent for the given SQL type.
+        if "sqlalchemy_url_query" in config:
+            config_url = config_url.update_query_dict(config.get("sqlalchemy_url_query"))  # type: ignore  # noqa: PGH003
 
-        Developers may optionally add custom logic before calling the default
-        implementation inherited from the base class.
-
-        Args:
-            from_type: The SQL type as a string or as a TypeEngine. If a TypeEngine is
-                provided, it may be provided as a class or a specific object instance.
-
-        Returns:
-            A compatible JSON Schema type definition.
-        """
-        # Optionally, add custom logic before calling the parent SQLConnector method.
-        # You may delete this method if overrides are not needed.
-        return SQLConnector.to_jsonschema_type(from_type)
-
-    @staticmethod
-    def to_sql_type(jsonschema_type: dict) -> sqlalchemy.types.TypeEngine:
-        """Returns a JSON Schema equivalent for the given SQL type.
-
-        Developers may optionally add custom logic before calling the default
-        implementation inherited from the base class.
-
-        Args:
-            jsonschema_type: A dict
-
-        Returns:
-            SQLAlchemy type
-        """
-        # Optionally, add custom logic before calling the parent SQLConnector method.
-        # You may delete this method if overrides are not needed.
-        return SQLConnector.to_sql_type(jsonschema_type)
+        return str(config_url)
 
 
 class MSSQLStream(SQLStream):
