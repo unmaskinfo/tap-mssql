@@ -13,6 +13,9 @@ from singer_sdk import SQLConnector, SQLStream
 
 from tap_mssql.json_serializer import deserialize_json, serialize_json
 
+if t.TYPE_CHECKING:
+    from sqlalchemy.engine import Engine
+
 
 class MSSQLConnector(SQLConnector):
     """Connects to the MSSQL SQL source."""
@@ -56,6 +59,23 @@ class MSSQLConnector(SQLConnector):
             config_url = config_url.update_query_dict(config.get("sqlalchemy_url_query"))  # type: ignore  # noqa: PGH003
 
         return str(config_url)
+
+    def create_engine(self) -> Engine:
+        """Create a new SQLAlchemy engine instance.
+
+        Returns:
+            A new SQLAlchemy engine instance.
+        """
+        eng_prefix = "ep."
+        eng_config = {
+            f"{eng_prefix}url": self.sqlalchemy_url,
+            f"{eng_prefix}echo": False,
+            f"{eng_prefix}json_serializer": self.serialize_json,
+            f"{eng_prefix}json_deserializer": self.deserialize_json,
+            **{f"{eng_prefix}{key}": value for key, value in self.config.get("sqlalchemy_eng_params", {}).items()},
+        }
+
+        return sa.engine_from_config(eng_config, prefix=eng_prefix)
 
 
 class MSSQLStream(SQLStream):
