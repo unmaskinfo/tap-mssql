@@ -14,35 +14,53 @@ class TapMSSQL(SQLTap):
     name = "tap-mssql"
     default_stream_class = MSSQLStream
 
-    # TODO: Update this section with the actual config values you expect:
     config_jsonschema = th.PropertiesList(
         th.Property(
-            "auth_token",
-            th.StringType,
+            "mssql",
+            th.ObjectType(
+                th.Property(
+                    "host",
+                    th.StringType,
+                    description="The hostname or IP address of the MSSQL server",
+                    required=True,
+                ),
+                th.Property(
+                    "port",
+                    th.IntegerType,
+                    description="The port number for the MSSQL server",
+                    default=1433,
+                ),
+                th.Property(
+                    "database",
+                    th.StringType,
+                    description="The name of the database to connect to",
+                    required=True,
+                ),
+                th.Property(
+                    "user",
+                    th.StringType,
+                    description="Username used to authenticate with the MSSQL server",
+                    required=True,
+                ),
+                th.Property(
+                    "password",
+                    th.StringType,
+                    description="Password used to authenticate with the MSSQL server",
+                    required=True,
+                    secret=True,  # Marks this field as sensitive
+                ),
+                th.Property(
+                    "driver_type",
+                    th.StringType,
+                    description="The Python database driver to use for connecting to MSSQL Server.",
+                    allowed_values=["pyodbc", "pymssql"],
+                    default="pymssql",
+                    required=True,
+                ),
+            ),
+            description="MSSQL connection configuration",
             required=True,
-            secret=True,  # Flag config as protected.
-            title="Auth Token",
-            description="The token to authenticate against the API service",
-        ),
-        th.Property(
-            "project_ids",
-            th.ArrayType(th.StringType),
-            required=True,
-            title="Project IDs",
-            description="Project IDs to replicate",
-        ),
-        th.Property(
-            "start_date",
-            th.DateTimeType,
-            description="The earliest record date to sync",
-        ),
-        th.Property(
-            "api_url",
-            th.StringType,
-            title="API URL",
-            default="https://api.mysample.com",
-            description="The url for the API service",
-        ),
+        )
     ).to_dict()
 
 
