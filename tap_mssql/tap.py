@@ -16,7 +16,7 @@ class TapMSSQL(SQLTap):
 
     config_jsonschema = th.PropertiesList(
         th.Property(
-            "mssql_connection_config",
+            "mssql",
             th.ObjectType(
                 th.Property(
                     "host",
